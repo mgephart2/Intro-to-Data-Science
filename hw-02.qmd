@@ -1,0 +1,579 @@
+---
+title: "Homework 2: Data Visualization and Data Wrangling"
+subtitle: "Spring 2024 MATH/COSC 3570 Introduction to Data Science by Dr. Cheng-Han Yu"
+format: 
+  html:
+    toc: true
+    code-fold: false
+    code-tools: true
+date: today
+author: "Michael Gephart"
+number-sections: true
+from: markdown+emoji
+editor: 
+  source
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+####################################################
+## !!!DO NOT MAKE ANY CHANGE OF THIS CODE CHUNK!!!##
+####################################################
+
+# Package names
+packages <- c("knitr", "ggplot2", "ggrepel", 
+              "tidyverse", "formatR", "ggthemes")
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+    install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+```
+
+# Data Wrangling and Tidying
+
+## Murders {#sec-murders}
+
+1. Import the data set `murders`. Use the pipe operator `|>` and the **dplyr** functions `mutate()`, `filter()`, and `select()` to get the following data output. Call the data set `df`. 
+
+The filtering conditions are 
+
++ `region` in "Northeast" or "West"
++ `rate = total / population * 100000` is less than 1. 
+  
+The new variable `rank` is based on `rate`. The highest rate is ranked 1st. **[Hint:]** Use the function `rank()`.
+
+```{r}
+#| eval: true
+
+## code
+(df <- read_csv("./data/murders.csv"))
+
+df <- df  |>  
+    mutate(rate = total / population * 100000, rank = rank(-rate)) |> 
+    filter(region %in% c("Northeast", "West"), rate < 1) |>
+    select(rate, rank, state, total)
+df
+# # A tibble: 8 × 4
+#    rate  rank state         total
+#   <dbl> <dbl> <chr>         <dbl>
+# 1 0.515    49 Hawaii            7
+# 2 0.766    46 Idaho            12
+# 3 0.828    44 Maine            11
+# 4 0.380    50 New Hampshire     5
+# 5 0.940    42 Oregon           36
+# 6 0.796    45 Utah             22
+# 7 0.320    51 Vermont           2
+# 8 0.887    43 Wyoming           5
+```
+
+
+2. Change the type of column `rank` to *factor*, and `total` to *integer*. (You can use the built-in `as.factor()` and `as.integer()` or the `convert()` function in the [**hablar**](https://cran.r-project.org/web/packages/hablar/vignettes/convert.html) package.
+
+```{r}
+#| eval: true
+
+## code
+df$rank <- as.factor(df$rank)
+df$total <- as.integer(df$total)
+df
+
+```
+
+
+
+3. Create a list named `df_lst` of two elements. The first element is a subset of `df` whose rows have `total` less than 10, and the second element is a subset of `df` so that each of its row has `total` higher than 10. Print it out.
+
+```{r}
+#| eval: true
+
+## code
+df_lst <- list()
+
+df_lst[[1]] <- df |>
+  filter(total < 10)
+
+df_lst[[2]] <- df |>
+  filter(total > 10)
+
+df_lst
+
+# [[1]]
+# # A tibble: 4 × 4
+#    rate rank  state         total
+#   <dbl> <fct> <chr>         <dbl>
+# 1 0.515 49    Hawaii            7
+# 2 0.380 50    New Hampshire     5
+# 3 0.320 51    Vermont           2
+# 4 0.887 43    Wyoming           5
+# 
+# [[2]]
+# # A tibble: 4 × 4
+#    rate rank  state  total
+#   <dbl> <fct> <chr>  <dbl>
+# 1 0.766 46    Idaho     12
+# 2 0.828 44    Maine     11
+# 3 0.940 42    Oregon    36
+# 4 0.796 45    Utah      22
+```
+
+
+4. Combine the two data sets in `df_lst` using `rbind()`.
+
+```{r}
+#| eval: true
+
+## code
+df_lst2 <- rbind(df_lst[[1]], df_lst[[2]])
+df_lst2
+
+```
+
+
+
+5. The **dplyr** provides `dplyr::bind_rows()` and  `dplyr::bind_cols()` that are analogs to `rbind()` and `cbind()` in the R **base**. Combine the two data sets in `df_lst` using `bind_rows()`. The result should be exactly the same as the previous one.
+```{r}
+#| eval: true
+library(dplyr)
+
+## code
+df_lst3 <- bind_rows(df_lst)
+df_lst3
+
+
+```
+
+
+6. Combine the two data frames `data1` and `data2` below using `bind_rows()` and `rbind()`. Describe what happened and their difference. (Note that the two data sets have different column names)
+
+```{r}
+data1 <- tibble(x = letters[1:5])
+data2 <- tibble(y = 1:3)
+```
+
+
+```{r}
+#| eval: false
+## code (Error may happen. set eval: false if you'd like to render the document.)
+data3 <- rbind(data1, data2)
+data3
+data4 <- bind_rows(data1, data2)
+data4
+
+```
+
+
+7. With `df`, select `state` and `total`, and arrange `df` by `total` in an increasing order.
+
+
+```{r}
+#| eval: true
+## code
+df <- df |>
+  select(state, total) |>
+  arrange(total)
+df
+
+```
+
+
+8. With `df`, use `contains()` to select column variables whose name contains the string *"at"*. 
+
+```{r}
+#| eval: true
+## code
+df <- df |>
+  select(contains("at"))
+df
+
+```
+
+9. Back to `murders`. Extract the rows whose has the largest population in its region as the shown output. The population is ranked in a decreasing order.
+
+```{r}
+#| eval: true
+## code
+(df <- read_csv("./data/murders.csv"))
+
+df <- df |>
+    group_by(region) |>
+    slice_max(order_by = population) |>
+    arrange(-population)
+df
+    
+# # A tibble: 4 × 5
+#   state      abb   region        population total
+#   <chr>      <chr> <chr>              <dbl> <dbl>
+# 1 California CA    West            37253956  1257
+# 2 Texas      TX    South           25145561   805
+# 3 New York   NY    Northeast       19378102   517
+# 4 Illinois   IL    North Central   12830632   364
+```
+
+
+
+## Baseball {#sec-baseball}
+
+1. Install and load the [**Lahman**](https://github.com/cdalzell/Lahman) library. This database includes data related to baseball teams. It includes summary statistics about how the players performed on offense and defense for several years. It also includes personal information about the players. The `Batting` data frame contains the offensive statistics for all players for many years:
+
+```{r}
+#| echo: false
+library(Lahman)
+Batting |> as_tibble() |> glimpse()
+```
+
+Use `Batting` data to obtain the top 10 player observations that hit the most home runs (in descending order) in 2022. Call the data set `top10`, make it as a tibble and print it out.
+
+```{r}
+#| eval: true
+## code
+(batting <- read_csv("./data/Batting.csv"))
+
+top10 <- batting |>
+  filter(yearID == 2022) |>
+  arrange(desc(HR)) |>
+  slice_max(n = 10, order_by = HR)
+
+top10
+```
+
+
+2. But who are these players? In the `top10` data, we see an ID, but not the names. The player names are in the `People` data set:
+```{r}
+#| echo: false
+People |> as_tibble() |> glimpse()
+```
+
+We can see column names `nameFirst` and `nameLast`. Use the `left_join()` function to create a table of the top home run hitters. The data table should have variables *playerID*, *nameFirst*, *nameLast*, and *HR*. Overwrite the object `top10` with this new table, and print it out.
+```{r}
+#| eval: true
+## code
+(people <- read_csv("./data/People.csv"))
+
+top10 <- top10 |>
+  left_join(people, by = "playerID") |>
+  select(playerID, nameFirst, nameLast, HR)
+top10
+
+
+```
+
+
+3. Use the `Fielding` data frame to add each player's position to the table you created in (2). Make sure that you filter for the year 2022 first, then use `right_join()`. This time show *nameFirst*, *nameLast*, *teamID*, *HR*, and *POS*.
+```{r}
+#| eval: true
+## code
+top10 <- top10 |>
+  right_join(select(Fielding, playerID, teamID, POS), top10, by = "playerID") |>
+  select(nameFirst, nameLast, teamID, HR, POS)
+top10
+  
+```
+
+
+
+## Pivoting
+
+1. The R built-in `co2` data set is not tidy. Let's make it tidy. Run the following code to define the `co2_wide` object:
+```{r}
+co2_wide <- data.frame(matrix(co2, ncol = 12, byrow = TRUE)) |> 
+    setNames(1:12) |> 
+    mutate(year = as.character(1959:1997))
+co2_wide
+```
+Use the `pivot_longer()` function to make it tidy. Call the column with the CO2 measurements `co2` and call the month column `month`. Call the resulting object `co2_tidy`. Print it out.
+```{r}
+#| eval: true
+## code
+co2_tidy <- co2_wide |>
+  pivot_longer(cols = 1:12, names_to = "month", values_to = "co2")
+co2_tidy
+
+## # A tibble: 468 x 3
+##    year  month   co2
+##    <chr> <chr> <dbl>
+##  1 1959  1      315.
+##  2 1959  2      316.
+##  3 1959  3      316.
+##  4 1959  4      318.
+##  5 1959  5      318.
+##  6 1959  6      318 
+##  7 1959  7      316.
+##  8 1959  8      315.
+##  9 1959  9      314.
+## 10 1959  10     313.
+## # … with 458 more rows
+```
+
+
+## Data Manipulation in Python
+
+<!-- Here we redo some problems in @sec-murders using Python. -->
+
+```{python}
+import numpy as np
+import pandas as pd
+```
+
+
+1. Use Python to do @sec-murders question 1. 
+    
+```{python}
+#| eval: true
+## code
+df = pd.read_csv("./data/murders.csv")
+df['rate'] = df['total'] / df['population'] * 100000
+df['rank'] = df['rate'].rank(ascending=False)
+df = df[(df['region'].isin(["Northeast", "West"])) & (df['rate'] < 1)]
+df = df[['rate', 'rank', 'state', 'total']]
+print(df)
+```
+
+
+
+2. Use Python to do @sec-murders question 7. 
+
+
+```{python}
+#| eval: true
+## code
+df = pd.read_csv("./data/murders.csv")
+df = df[['state', 'total']]
+df = df.sort_values(by='total')
+print(df)
+
+```
+
+
+3. Use Python to do @sec-murders question 9. **[Hint:]** The method [pandas.DataFrame.drop_duplicates()]( https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.drop_duplicates.html) is analogous to `dplyr::distinct()`. Please figure out what we should use in the argument subset and keep.
+
+```{python}
+#| eval: true
+## code
+df = pd.read_csv("./data/murders.csv")
+df_sorted = df.sort_values(by=['region', 'population'], ascending=[False, False])
+df_sorted = df_sorted.drop_duplicates(subset='region', keep='first')
+print(df_sorted)
+
+```
+
+
+4. Use Python to do @sec-baseball question 1. (Import the data Batting.csv).
+
+```{python}
+#| eval: true
+## code
+batting = pd.read_csv("./data/Batting.csv")
+filtered_df = batting[batting['yearID'] == 2022]
+sorted_df = filtered_df.sort_values(by='HR', ascending=False)
+top10 = sorted_df.head(10)
+
+print(top10)
+
+```
+
+
+5. Use Python to do @sec-baseball question 2. (Import the data People.csv).
+
+```{python}
+#| eval: true
+## code
+people = pd.read_csv("./data/People.csv")
+merged_df = pd.merge(top10, people[['playerID', 'nameFirst', 'nameLast']], on='playerID', how='left')
+result = merged_df[['playerID', 'nameFirst', 'nameLast', 'HR']]
+print(result)
+```
+
+
+# Data Visualization
+
+In this section all the plots should be generated using **ggplot2**.
+
+
+
+## murders
+
+Use `murders` to make plots.
+
+
+1. Create a scatter plot of total murders (x-axis) versus population sizes (y-axis) using the pipe operator `|>` that the murders data set is on the left to `|>`.
+
+
+```{r}
+#| eval: true
+## code
+(murders <- read_csv("./data/murders.csv"))
+
+ggplot(data = murders,
+       mapping = aes(x = total, 
+                     y = population)) +
+  geom_point()
+```
+
+
+2. Generate the plot below using `label` and `color` aesthetics in `aes()` and a geometry layer `geom_label()`. Save the ggplot object as `p`. Here, we add abbreviation as the label, and make the labels' color be determined by the state's region.
+
+```{r}
+#| eval: true
+## code
+(murders <- read_csv("./data/murders.csv"))
+
+p <- ggplot(data = murders,
+       mapping = aes(x = total, 
+                     y = population,
+                     color = region,
+                     label = state)) +
+  geom_point()
+p
+
+```
+
+```{r}
+#| echo: false
+knitr::include_graphics("./img/murder_label.png")
+```
+
+
+
+3. Use the object `p` in (2) and 
+
+  + Change both axes to be in the $\log_{10}$ scale using [`scale_x_log10()`](https://ggplot2.tidyverse.org/reference/scale_continuous.html) and `scale_y_log10()`
+  + Add a title "Gun murder data"
+  + Use the wall street journal theme in [**ggthemes**](https://yutannihilation.github.io/allYourFigureAreBelongToUs/ggthemes/).
+
+```{r}
+#| eval: true
+## code
+(murders <- read_csv("./data/murders.csv"))
+
+p <- p +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(
+    title = "Gun murder data"
+  ) +
+  ggthemes::theme_wsj()
+p
+```
+
+
+
+
+## mpg
+
+Use `mpg` to make plots.
+
+1. What's gone wrong with this code? Why are the points not blue? Change it so that the points are colored in blue.
+
+```{r}
+mpg |> ggplot(mapping = aes(x = displ, y = hwy)) +
+    geom_point(color = "blue")
+```
+
+
+2. Generate the bar chart below. 
+```{r}
+#| eval: true
+## code
+mpg |> ggplot(data = mpg,
+       mapping = aes(x = factor(cyl),
+                     fill = drv)) +
+  geom_bar(position = "fill")
+```
+
+```{r}
+#| echo: false
+knitr::include_graphics("./img/mpg_bar.png")
+```
+
+
+
+3. Complete the code to generate the boxplot below. Note that `x = class` and `y = hwy`, so the coordinates need to be flipped.
+
+```{r}
+#| eval: true
+## code
+mpg |> 
+  ggplot(
+    aes(x = hwy,
+        y = class,
+        fill = class)
+  ) +
+  geom_boxplot(
+    outlier.colour = "red",
+    outlier.shape = 1,) +
+  labs(
+    x = "Highway MPG",
+    y = "Year",
+    fill = "model",
+    title = "Highway MPG by car class",
+  ) +
+  theme(legend.position = "none")
+```
+
+
+```{r}
+#| echo: false
+knitr::include_graphics("./img/mpg_boxplot.png")
+```
+
+
+4. Generate the histogram below with *density* scale. Map `y` to the internal variable `..density..` (`after_stat(density)`) to show density values. Put the legend inside the plot at `c(0.9, 0.15)`. (check ?theme help page)
+```{r}
+#| eval: true
+## code
+mpg |> 
+  ggplot(
+    aes(x = hwy,
+        fill = drv)
+  ) +
+  geom_histogram(aes(y = after_stat(density)), color = "black") +
+  facet_wrap(
+    ~ drv,
+    nrow = 3) +
+  theme(legend.position = c(0.9, 0.15)) +
+  theme_dark()
+```
+
+```{r}
+#| echo: false
+knitr::include_graphics("./img/mpg_hist.png")
+```
+
+
+
+5. Generate the scatter plot below. 
+
+```{r}
+#| eval: true
+## code
+mpg |> ggplot(aes(x = displ, 
+                  y = hwy, 
+                  color = class)) + 
+  geom_point() +
+  labs(
+    title = "Engine Size vs. Fuel Efficiency",
+    subtitle = "Dimensions for class",
+    x = "Engine displacement (litres)", 
+    y = "Highway (mpg)",
+    color = "Type of car"
+    ) +
+  theme(
+      plot.title = element_text(color = "red", face = "bold.italic", hjust = 0.5), 
+      legend.position = "bottom",
+      axis.title.x = element_text(color = "blue", face = "bold"),
+      axis.title.y = element_text(color = "green", face = "bold"),
+      legend.title = element_text(color = "orange", face = "bold")
+      )
+```
+
+```{r}
+#| echo: false
+knitr::include_graphics("./img/mpg_text.png")
+```

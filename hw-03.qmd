@@ -1,0 +1,463 @@
+---
+title: "Homework 3: Probability, Statistics and Machine Learning"
+subtitle: "Spring 2024 MATH/COSC 3570 Introduction to Data Science by Dr. Cheng-Han Yu"
+format: 
+  html:
+    code-fold: false
+    code-tools: true
+date: today
+author: "Michael Gephart"
+number-sections: true
+from: markdown+emoji
+editor: 
+  source
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+####################################################
+## !!!DO NOT MAKE ANY CHANGE OF THIS CODE CHUNK!!!##
+####################################################
+
+# Package names
+packages <- c("knitr", "ggplot2", "ggrepel", 
+              "tidyverse", "formatR", "dslabs", "janitor", 
+              "ggthemes", "plotly", "tidymodels", "kknn")
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+    install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+```
+
+
+- **Note: For any simulation or random sampling, set the random seed at your student ID number, for example `set.seed(6145678)`.**
+
+
+# Probability and Statistics
+
+## Monte Carlo Simulation
+
+<!-- 1. Milwaukee Bucks and Golden State Warriors are playing NBA Finals 🏆. The first to win four games wins the series. The Bucks are a better team and have a 60% chance of winning each game. If the Bucks lose the **first two games**, calculate the probability that the Bucks win the NBA championship?  -->
+
+<!-- **[Hint]**: You can use binomial distribution, and given the first two games loss, the probability $P(\text{Bucks wins the series})$ is -->
+
+<!-- $$P(\text{Bucks wins 4 in a row}) + P(\text{Bucks wins 4 in 5 games})$$ -->
+
+<!-- ```{r} -->
+
+<!-- ## code -->
+
+<!-- ``` -->
+
+<!-- 2. Confirm the results of the previous question using a Monte Carlo simulation. -->
+
+<!-- ```{r} -->
+
+<!-- ## code -->
+<!-- # set.seed(your ID number) -->
+
+<!-- ``` -->
+
+1. Suppose you are in a classroom with 30 people. If we assume this is a randomly selected group of 30 people, what is the chance that at least two people have the same birthday? Here we use a Monte Carlo simulation. For simplicity, we assume nobody was born on February 29.
+
+i. Note that birthdays can be represented as numbers between 1 and 365, so a sample of 30 birthdays can be obtained like this:
+
+```{r}
+n <- 30
+bdays <- sample(x = 1:365, size = n, replace = TRUE)
+```
+
+
+ii. To check if in this particular set of 30 people we have at least two with the same birthday, we can use the function `duplicated()`, which returns `TRUE` whenever an element of a vector is a duplicate. Here is an example:
+```{r}
+duplicated(c(1, 2, 3, 1, 4, 3, 5))
+```
+The second time 1 and 3 appear, we get a `TRUE`.
+
+
+iii. To check if two birthdays were the same, we simply use the `any()` and `duplicated()` functions like this:
+```{r}
+any(duplicated(bdays))
+```
+In this case, we see that it did happen. At least two people had the same birthday.
+
+To estimate the probability of a shared birthday in the group, repeat this experiment by sampling sets of 30 birthdays 10000 times, and find the relative frequency of the event that at least two people had the same birthday.
+
+```{r}
+#| eval: true
+## code
+## same result!
+
+set.seed(006197319)
+bdays2 <- sample(x = 1:365, size = 10000, replace = TRUE)
+freq_table <- table(duplicated(bdays2))
+freq_table / 10000
+
+  
+```
+
+
+
+
+
+## Central Limit Theorem
+Suppose random variables $X_1, X_2, \dots, X_n$ are independent and follow Chi-squared distribution with degrees of freedom 1, $\chi^2_{df=1}$.
+
+1. Use `dchisq()` to plot $\chi^2_{df=1}$ distribution. Consider $x\in (0, 5)$.
+
+```{r}
+#| eval: true
+## code
+ggplot() +
+    xlim(0, 5) +
+    geom_function(fun = dchisq, args = list(df = 1), color = "blue")
+
+```
+
+
+2. Consider three sample sizes $n = 2, 8, 100$, and set the sample size of the sample mean $\overline{X}_n$ be $1000$. Show the sampling distribution of $\overline{X}_n$, i.e., the collection $\{\overline{X}_n^{(m)}\}_{m=1}^{1000}$, looks more and more like Gaussian as $n$ increases by making histograms of $\overline{X}_n$ samples with $n = 2, 8, 100$. The procedure is the following:
+
+For each $n = 2, 8, 100$,
+
+i. Draw $n$ values $x_1, x_2, \dots, x_n$ using `rchisq(n, df = 1)`.
+ii. Compute the mean of the $n$ values, which is $\overline{x}_n$.
+iii. Repeat i. and ii. 1000 times to obtain 1000 $\overline{x}_n$s.
+iv. Plot the histogram of these 1000 $\overline{x}_n$s.
+
+
+```{r}
+#| eval: true
+## code
+set.seed(006197319)
+# n = 2
+mean_values2 <- numeric(1000)
+for (i in 1:1000) {
+  chi_sample2 <- rchisq(2, df = 1)
+  mean_values2[i] <- mean(chi_sample2)
+}
+hist(mean_values2, breaks = 30, freq = FALSE, col = "grey")
+
+# n = 8
+mean_values8 <- numeric(1000)
+for (i in 1:1000) {
+  chi_sample8 <- rchisq(8, df = 1)
+  mean_values8[i] <- mean(chi_sample8)
+}
+hist(mean_values8, breaks = 30, freq = FALSE, col = "grey")
+
+# n = 100
+mean_values100 <- numeric(1000)
+for (i in 1:1000) {
+  chi_sample100 <- rchisq(100, df = 1)
+  mean_values100[i] <- mean(chi_sample100)
+}
+hist(mean_values100, breaks = 30, freq = FALSE, col = "grey")
+
+```
+
+
+# Machine Learning
+
+## Linear Regression
+
+A pharmaceutical firm would like to obtain information on the relationship between the dose level and potency of a drug product. To do this, each of 15 test tubes is inoculated with a virus culture and incubated for 5 days at 30°C. Three test tubes are randomly assigned to each of the five different dose levels to be investigated (2, 4, 8, 16, and 32 mg). Each tube is injected with only one dose level, and the response of interest is obtained.
+
+1. Import `dose.csv` in the `/data` folder into your working session. The data set is not tidy. Use `pivot_longer()` to make it tidy as the shown tibble below. Call the tidy data set `dose_tidy`.
+
+```{r}
+#| eval: true
+## code
+dose_data <- readr::read_csv(file = "./data/dose.csv", show_col_types = FALSE)
+dose_tidy <- dose_data |> pivot_longer(cols = tube_1:tube_3, names_to = "tube", values_to = "response")
+dose_tidy
+## # A tibble: 15 × 3
+##    dose_level tube  response
+##         <dbl> <chr>    <dbl>
+##  1          2 tube1        5
+##  2          2 tube2        7
+##  3          2 tube3        3
+##  4          4 tube1       10
+##  5          4 tube2       12
+##  6          4 tube3       14
+##  7          8 tube1       15
+##  8          8 tube2       17
+##  9          8 tube3       18
+## 10         16 tube1       20
+## 11         16 tube2       21
+## 12         16 tube3       19
+## 13         32 tube1       23
+## 14         32 tube2       24
+## 15         32 tube3       29
+```
+
+
+2. Fit a simple linear regression with the predictor $\texttt{dose level}$ for `response`. Print the fitted result. 
+
+```{r}
+#| eval: true
+## code
+library(tidymodels)
+parsnip::linear_reg()
+linear_reg() |> 
+    set_engine("lm")
+
+reg_out_fit <- lm(response ~ dose_level, data = dose_tidy)
+
+summary(reg_out_fit)
+
+```
+
+3. With (2), plot the data with a $95\%$ confidence interval for the mean response.
+
+```{r}
+#| eval: true
+## code
+dose_tidy |>
+  ggplot(aes(x = dose_level, y = response)) +
+    geom_point() +
+    geom_smooth(method = "lm", se = TRUE)
+
+```
+
+4. Fit a simple linear regression model with the predictor $\texttt{ln(dose level)}$ for `response`, where $\ln = \log_e$. Print the fitted result.
+
+```{r}
+#| eval: true
+## code
+dose_tidy <- dose_tidy |> mutate(ln_dose_level = log(dose_level))
+
+fit_ln <- lm(response ~ ln_dose_level, data = dose_tidy)
+
+summary(fit_ln)
+
+```
+
+5. With (4), plot the data $(\ln(\text{dose level})_i, \text{response}_i), i = 1, \dots, 15$ with a $95\%$ confidence interval for the mean response.
+
+```{r}
+#| eval: true
+## code
+p_ci <- dose_tidy |> 
+  ggplot(aes(x = ln_dose_level, y = response)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+
+pred_y <- predict(fit_ln, interval = "confidence")
+
+p_ci + 
+  geom_line(aes(ln_dose_level, pred_y[, "lwr"]), color = "red") +
+  geom_line(aes(ln_dose_level, pred_y[, "upr"]), color = "red")
+
+```
+
+6. Draw residual plots of Model in (2) and (4). According to the plots, which model you think is better?
+
+```{r}
+
+## code
+par(mfrow = c(1, 2))
+plot(reg_out_fit, pch = 16, main = "Residuals for Model with Dose Level")
+plot(fit_ln, pch = 16, main = "Residuals for Model with ln(Dose Level)")
+
+```
+
+
+7. Import `dose_tidy.csv` and redo (2) using **Python**. Show the slope and intercept.
+
+```{python}
+#| eval: true
+# code
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+
+dose_tidy = pd.read_csv("./data/Data_response.csv")
+
+dose_level = dose_tidy['dose_level'].values.reshape(-1, 1)
+response = dose_tidy['response'].values
+
+model = LinearRegression().fit(dose_level, response)
+
+print("Slope:", model.coef_[0])
+print("Intercept:", model.intercept_)
+
+```
+
+
+
+8. Use **Python** to predict the response value when the dose level is 10 and 30.
+
+```{python}
+#| eval: true
+# code
+dose_levels_to_predict = np.array([[10], [30]])
+predicted_responses = model.predict(dose_levels_to_predict)
+for dose, response in zip(dose_levels_to_predict.flatten(), predicted_responses):
+    print(f"Predicted response when dose level is {dose}: {response}")
+```
+
+
+## Logistic Regression
+
+1. Import `body.csv` in the `/data` folder. Split the data into a training set and a test set. Set the random seed at your student ID number. Use 80:20 rule.
+
+```{r}
+#| eval: true
+# code
+set.seed(006197319)
+body_data <- readr::read_csv(file = "./data/body.csv", show_col_types = FALSE)
+
+split <- initial_split(body_data, prop = 0.8)
+
+body_train <- training(split)
+body_test <- testing(split)
+
+```
+
+2. Fit a logistic regression with the predictor `HEIGHT` using the training sample data. Find the probability that the subject is male given `HEIGHT = 165`.
+
+```{r}
+#| eval: true
+# code
+str(body_train$GENDER)
+body_train$GENDER <- factor(body_train$GENDER)
+
+logis_out <- logistic_reg() |> 
+    fit(GENDER ~ HEIGHT, 
+        data = body_train, 
+        family = "binomial")
+
+new_data <- data.frame(HEIGHT = 165)
+probability_male <- predict(logis_out, new_data = new_data, type = "prob")
+probability_male
+```
+
+3. Fit a logistic regression with the predictor `BMI` using the training sample data. Find the probability that the subject is male given `BMI = 25`.
+
+```{r}
+#| eval: true
+# code
+logis_out2 <- logistic_reg() |> 
+    fit(GENDER ~ BMI, 
+        data = body_train, 
+        family = "binomial")
+
+new_data2 <- data.frame(BMI = 25)
+probability_male2 <- predict(logis_out2, new_data = new_data2, type = "prob")
+probability_male2
+```
+
+
+4. Do the classification on the test set for the model (2) and (3), and compute the test accuracy rate. Which model gives us higher accuracy rate?
+
+```{r}
+#| eval: true
+# code
+predicted_labels <- predict(logis_out, new_data = body_test, type = "class")
+correct_predictions <- sum(predicted_labels == body_test$GENDER)
+accuracy <- correct_predictions / nrow(body_test)
+accuracy
+
+predicted_labels2 <- predict(logis_out2, new_data = body_test, type = "class")
+correct_predictions2 <- sum(predicted_labels2 == body_test$GENDER)
+accuracy2 <- correct_predictions2 / nrow(body_test)
+accuracy2
+
+#The first model gives us a higher accuracy rate
+#accuracy 1 = 0.833333
+#accuracy 2 = 0.383333
+
+```
+
+
+5. Use **Python** to split the `body` data into a training set and a test set.
+
+```{python}
+#| eval: true
+## code
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+body = pd.read_csv('./data/body.csv')
+
+X = body[['BMI']]
+y = body['GENDER']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+```
+
+
+6. Use **Python** to fit a logistic regression with the predictor `BMI` using the training sample data. Find the probability that the subject is male given `BMI = 25`.
+
+```{python}
+#| eval: true
+# code
+logis_out = LogisticRegression()
+logis_out.fit(X_train, y_train)
+
+new_data = pd.DataFrame({'BMI': [25]})
+
+new_data_reshaped = new_data.values.reshape(1, -1)
+
+probability_male = logis_out.predict_proba(new_data_reshaped)[:, 1]
+
+print(probability_male)
+```
+
+
+7. Use **Python** to do the classification on the test set. Compute the test accuracy rate.
+
+```{python}
+#| eval: true
+# code
+from sklearn.metrics import accuracy_score
+
+y_pred = logis_out.predict(X_test)
+
+accuracy = accuracy_score(y_test, y_pred)
+print("Test Accuracy Rate:", accuracy)
+
+
+```
+
+
+## K-Nearest Neighbors (KNN)
+
+1. Use R or Python to fit the KNN with $K=1$ and $10$ using `BMI` on the training data and do the classification on the same test set used in logistic regression. Obtain the confusion matrix for the two $K$s. Which $K$ performs better? Why?
+
+```{r}
+#| eval: true
+# code
+body_data$GENDER <- factor(body_data$GENDER)
+
+knn_recipe <- recipes::recipe(GENDER ~ BMI, data = body_data) |> 
+    step_normalize(all_numeric_predictors())
+(knn_mdl <- parsnip::nearest_neighbor(mode = "classification", neighbors = 3))
+
+knn_out <- 
+    workflows::workflow() |> 
+    add_recipe(knn_recipe) |> 
+    add_model(knn_mdl) |> 
+    fit(data = body_data)
+
+bind_cols(
+    predict(knn_out, body_test),
+    predict(knn_out, body_test, type = "prob")) |> 
+    dplyr::sample_n(size = 10)
+
+knn_pred <- pull(predict(knn_out, body_test))
+table(knn_pred, body_test$GENDER)
+
+mean(knn_pred == body_test$GENDER)
+```
+
+
+
